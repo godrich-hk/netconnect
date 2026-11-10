@@ -1,0 +1,17 @@
+# Testing and build status
+
+The development sandbox is Debian Linux, without local `dotnet`, Java, Android SDK/adb, Windows SDK, devices, or `iperf3`. `dotnet --info` and `dotnet workload list` failed locally; official SDK download is blocked in the sandbox. A GitHub Actions runner is available despite the earlier permissions endpoint returning HTTP 403.
+
+Core checks on GitHub Actions succeeded on commit `770a0dd` ([run 42868952745](https://github.com/godrich-hk/netconnect/actions/runs/42868952745)): .NET 10 build and the dependency-free executable test suite passed, including mutual TLS loopback, stream, SHA-256, empty files, rejection, wrong pin, cancellation, corrupted digest, early EOF, write error, invitation encoding/single-use and pairing acceptance/rejection. This is not a device or MAUI test. Later changes need their own run.
+
+The Windows-hosted experimental installer workflow builds a debug-signed Android APK, a self-contained Windows app and an Inno Setup installer, and uploads artifacts if successful. See the latest run for the actual outcome; adding a workflow does not prove a successful build or installation. APK debug signing and unsigned Windows installer are not suitable for production distribution. `README.md` contains build commands.
+
+## Required real-device tests — not yet performed
+
+With devices on a private LAN allowing peer communication, test Android→Android, Android→Windows, Windows→Android and Windows→Windows. Verify both consent dialogs, one-use/expired code and wrong receiver pin, cancellation and a rejected request. Compare hashes for empty, duplicate-named, hundreds-of-MiB and ≥1 GiB files. Check storage errors, interruptions, application foreground/background behavior, firewall prompts and permissions. Confirm no content precedes approval and measure memory and throughput against `iperf3` under documented network conditions. Multi-send and discovery cannot be tested because they are not implemented. No throughput, device, installation or platform-matrix results are claimed.
+
+On commit `d664b22`, [run 42869286627](https://github.com/godrich-hk/netconnect/actions/runs/42869286627) successfully published the Android debug APK but failed at the Windows publish step; the workflow did not reach artifact upload. The failure's detailed log is hosted on a domain inaccessible from this sandbox, so diagnostics were added as job annotations in a subsequent run. No installation has been tested.
+
+On commit `394116c`, [run 42870310793](https://github.com/godrich-hk/netconnect/actions/runs/42870310793) built and uploaded an experimental Android APK. Windows restore failed with NU1102 because the global win-x64 runtime identifier was also applied to the Android target; the next workflow run explicitly limits target frameworks for Windows publish. Downloading the Android artifact into the sandbox failed because the artifact storage host is blocked here; it is available through the GitHub Actions run while retained. It has not been installed or tested on a device.
+
+On commit `d017ab6`, [run 42871213286](https://github.com/godrich-hk/netconnect/actions/runs/42871213286) again built/uploaded Android. Windows failed with NETSDK1005 because globally overriding `TargetFrameworks` affected the referenced core project. The next run uses an app-specific conditional property instead. The core checks for this commit succeeded in [run 42871213498](https://github.com/godrich-hk/netconnect/actions/runs/42871213498).
