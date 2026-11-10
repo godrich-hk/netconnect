@@ -17,8 +17,21 @@ jobs:
         run: dotnet workload install maui-android maui-windows --skip-manifest-update
       - name: Publish Android debug APK
         run: dotnet publish src/HamResan.App/HamResan.App.csproj -f net10.0-android -c Debug -p:AndroidPackageFormats=apk -o "${{ github.workspace }}\artifacts\android"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: experimental-android
+          path: artifacts/android/*-Signed.apk
+          if-no-files-found: error
+          retention-days: 7
       - name: Publish Windows x64 app
-        run: dotnet publish src/HamResan.App/HamResan.App.csproj -f net10.0-windows10.0.19041.0 -c Release -r win-x64 --self-contained true -p:WindowsAppSDKSelfContained=true -o "${{ github.workspace }}\artifacts\windows"
+        shell: pwsh
+        run: |
+          dotnet publish src/HamResan.App/HamResan.App.csproj -f net10.0-windows10.0.19041.0 -c Release -r win-x64 --self-contained true -p:WindowsAppSDKSelfContained=true -o "${{ github.workspace }}\artifacts\windows" 2>&1 | Tee-Object -FilePath windows-build.log
+          $result = $LASTEXITCODE
+          if ($result -ne 0) {
+            Get-Content windows-build.log -Tail 60 | ForEach-Object { Write-Output "::error::$($_ -replace '%','%25' -replace '\r','%0D' -replace '\n','%0A')" }
+            exit $result
+          }
       - name: Build Windows installer
         shell: pwsh
         run: |
@@ -31,9 +44,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
-          name: experimental-installers
-          path: |
-            artifacts/android/*-Signed.apk
-            artifacts/installer/HamResan-Windows-Setup.exe
+          name: experimental-windows
+          path: artifacts/installer/HamResan-Windows-Setup.exe
           if-no-files-found: error
           retention-days: 7

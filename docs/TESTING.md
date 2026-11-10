@@ -1,22 +1,13 @@
-# Testing
+# Testing and build status
 
-## Environment observed
+The development sandbox is Debian Linux, without local `dotnet`, Java, Android SDK/adb, Windows SDK, devices, or `iperf3`. `dotnet --info` and `dotnet workload list` failed locally; official SDK download is blocked in the sandbox. A GitHub Actions runner is available despite the earlier permissions endpoint returning HTTP 403.
 
-The development sandbox is Debian Linux and has no `dotnet`, MAUI workload, Java, Android SDK/adb, Windows SDK, Android device, or `iperf3`. `dotnet --info` and `dotnet workload list` both failed with `command not found`; a request to the official .NET SDK download host failed because outbound network access is restricted. Thus neither the C# build nor the tests below were executed here. The tests are a dependency-free executable rather than xUnit so that the portable core needs no third-party NuGet dependencies. The GitHub Actions workflow is configured but has not been run or verified.
+Core checks on GitHub Actions succeeded on commit `770a0dd` ([run 42868952745](https://github.com/godrich-hk/netconnect/actions/runs/42868952745)): .NET 10 build and the dependency-free executable test suite passed, including mutual TLS loopback, stream, SHA-256, empty files, rejection, wrong pin, cancellation, corrupted digest, early EOF, write error, invitation encoding/single-use and pairing acceptance/rejection. This is not a device or MAUI test. Later changes need their own run.
 
-On a machine with a stable .NET 10 SDK:
+The Windows-hosted experimental installer workflow builds a debug-signed Android APK, a self-contained Windows app and an Inno Setup installer, and uploads artifacts if successful. See the latest run for the actual outcome; adding a workflow does not prove a successful build or installation. APK debug signing and unsigned Windows installer are not suitable for production distribution. `README.md` contains build commands.
 
-```sh
-dotnet --info
-dotnet workload list
-dotnet build tests/HamResan.Core.Tests/HamResan.Core.Tests.csproj -c Release
-dotnet run --project tests/HamResan.Core.Tests/HamResan.Core.Tests.csproj -c Release --no-build
-```
+## Required real-device tests — not yet performed
 
-The harness contains checks for protocol framing/version, bounds, filenames/collisions, mutual TLS loopback streaming, zero bytes and SHA-256, rejection before opening input, wrong pin, cancellation/deadline, invalid digest, early EOF cleanup, and a destination write error. These are **written, not verified**. Real full disk, large-file memory behavior, platform TLS implementations and network change behavior have not been measured.
+With devices on a private LAN allowing peer communication, test Android→Android, Android→Windows, Windows→Android and Windows→Windows. Verify both consent dialogs, one-use/expired code and wrong receiver pin, cancellation and a rejected request. Compare hashes for empty, duplicate-named, hundreds-of-MiB and ≥1 GiB files. Check storage errors, interruptions, application foreground/background behavior, firewall prompts and permissions. Confirm no content precedes approval and measure memory and throughput against `iperf3` under documented network conditions. Multi-send and discovery cannot be tested because they are not implemented. No throughput, device, installation or platform-matrix results are claimed.
 
-## Real-device acceptance still required
-
-Once the missing app is implemented, use a private LAN with client-to-client traffic permitted, install on at least two Android devices and two Windows PCs, and test Android→Android, Android→Windows, Windows→Android and Windows→Windows. Confirm pairing codes on both sides, reject a changed identity and a request, send to two receivers with independent acceptance and cancellation, test simultaneous incoming connections, and compare hashes for empty, duplicate-named, hundreds-of-MiB and ≥1 GiB files. Test a disconnected network, timeouts and disk-full handling. Confirm no content precedes acceptance. Record memory use, LAN conditions and measured throughput against `iperf3`; no throughput measurements have been made. Test discovery retry and manual IP on networks where multicast is blocked. None of these platform tests have been performed.
-
-The unexecuted harness also contains invitation format, invalid input, expiry and concurrent single-use redemption tests. The invitation is not integrated with the TLS engine, so these checks do not test an end-to-end connection-code pairing flow.
+On commit `d664b22`, [run 42869286627](https://github.com/godrich-hk/netconnect/actions/runs/42869286627) successfully published the Android debug APK but failed at the Windows publish step; the workflow did not reach artifact upload. The failure's detailed log is hosted on a domain inaccessible from this sandbox, so diagnostics were added as job annotations in a subsequent run. No installation has been tested.

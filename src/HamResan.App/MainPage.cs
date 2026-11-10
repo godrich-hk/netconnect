@@ -93,11 +93,12 @@ public sealed class MainPage : ContentPage
             using TcpClient client = await listener.AcceptTcpClientAsync(wait.Token);
             listener.Stop();
             _code.Text = "";
+            using var handshake = CancellationTokenSource.CreateLinkedTokenSource(ct); handshake.CancelAfter(TimeSpan.FromMinutes(2));
             await using PinnedConnection connection = await InvitationPairing.AcceptAsync(client, identity, verifier,
-                (request, _) => MainThread.InvokeOnMainThreadAsync(() => DisplayAlert("درخواست اتصال", $"دستگاه {request.SenderName} قصد ارسال فایل دارد. فقط اگر انتظار این فرستنده را دارید بپذیرید.\n\nاثر انگشت: {request.SenderFingerprint}", "قبول", "رد")), ct);
+                (request, _) => MainThread.InvokeOnMainThreadAsync(() => DisplayAlertAsync("درخواست اتصال", $"دستگاه {request.SenderName} قصد ارسال فایل دارد. فقط اگر انتظار این فرستنده را دارید بپذیرید.\n\nاثر انگشت: {request.SenderFingerprint}", "قبول", "رد")), handshake.Token);
             _status.Text = "منتظر مشخصات فایل‌ها…";
             bool result = await TransferEngine.ReceiveAsync(connection, _received, Limit,
-                (offer, _) => MainThread.InvokeOnMainThreadAsync(() => DisplayAlert("درخواست دریافت", $"{string.Join("\n", offer.Files.Select(f => f.Name))}\n\nحجم کل: {offer.Files.Sum(f => f.Size):N0} بایت\nمحل: فضای خصوصی برنامه", "دریافت", "رد")), MakeProgress(), ct);
+                (offer, _) => MainThread.InvokeOnMainThreadAsync(() => DisplayAlertAsync("درخواست دریافت", $"{string.Join("\n", offer.Files.Select(f => f.Name))}\n\nحجم کل: {offer.Files.Sum(f => f.Size):N0} بایت\nمحل: فضای خصوصی برنامه", "دریافت", "رد")), MakeProgress(), ct);
             _status.Text = result ? "فایل‌های تأییدشده دریافت شدند؛ از دکمهٔ اشتراک‌گذاری برای ذخیره یا ارسال آن‌ها استفاده کنید." : "درخواست دریافت رد شد.";
         }
         finally { listener.Stop(); _code.Text = ""; }
@@ -106,8 +107,9 @@ public sealed class MainPage : ContentPage
     private async Task SendAsync(CancellationToken ct)
     {
         ConnectionInvitation invitation = ConnectionInvitation.Decode((_code.Text ?? "").Trim());
+        _code.Text = "";
         string name = (_name.Text ?? "").Trim();
-        var picked = (await FilePicker.Default.PickMultipleAsync()).ToArray();
+        var picked = (await FilePicker.Default.PickMultipleAsync())?.ToArray() ?? [];
         if (picked.Length == 0) return;
         if (picked.Length > Protocol.MaxFiles) { _status.Text = "تعداد فایل‌ها بیش از حد مجاز است."; return; }
         string staging = Path.Combine(FileSystem.Current.CacheDirectory, "send-" + Guid.NewGuid().ToString("N"));
@@ -122,7 +124,15 @@ public sealed class MainPage : ContentPage
                 string path = Path.Combine(staging, Guid.NewGuid().ToString("N"));
                 await using (Stream input = await file.OpenReadAsync())
                 await using (var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 256 * 1024, true))
-                    await input.CopyToAsync(output, 256 * 1024, ct);
+                {
+                    byte[] buffer = new byte[256 * 1024];
+                    int read;
+                    while ((read = await input.ReadAsync(buffer, ct)) > 0)
+                    {
+                        if (read > Limit - total - output.Length) throw new IOException("File limit exceeded.");
+                        await output.WriteAsync(buffer.AsMemory(0, read), ct);
+                    }
+                }
                 long size = new FileInfo(path).Length;
                 total = checked(total + size);
                 if (total > Limit) throw new IOException("File limit exceeded.");
@@ -131,8 +141,9 @@ public sealed class MainPage : ContentPage
             using var identity = CreateIdentity();
             using var client = new TcpClient(invitation.Address.AddressFamily);
             _status.Text = "در حال اتصال؛ منتظر تأیید گیرنده…";
-            await client.ConnectAsync(invitation.Address, invitation.Port, ct);
-            await using PinnedConnection connection = await InvitationPairing.ConnectAsync(client, identity, invitation, name, ct);
+            using var handshake = CancellationTokenSource.CreateLinkedTokenSource(ct); handshake.CancelAfter(TimeSpan.FromMinutes(2));
+            await client.ConnectAsync(invitation.Address, invitation.Port, handshake.Token);
+            await using PinnedConnection connection = await InvitationPairing.ConnectAsync(client, identity, invitation, name, handshake.Token);
             bool result = await TransferEngine.SendAsync(connection, files, MakeProgress(), ct);
             _status.Text = result ? "ارسال و بررسی فایل‌ها کامل شد." : "گیرنده درخواست فایل را رد کرد.";
         }
@@ -151,7 +162,7 @@ public sealed class MainPage : ContentPage
     {
         if (!Directory.Exists(_received) || Directory.GetFiles(_received).Length == 0) { _status.Text = "فایل دریافت‌شده‌ای وجود ندارد."; return; }
         string[] files = Directory.GetFiles(_received).Where(f => !Path.GetFileName(f).StartsWith(".hamresan-", StringComparison.Ordinal)).ToArray();
-        string? selected = await DisplayActionSheet("انتخاب فایل", "لغو", null, files.Select(Path.GetFileName).ToArray()!);
+        string? selected = await DisplayActionSheetAsync("انتخاب فایل", "لغو", null, files.Select(Path.GetFileName).ToArray()!);
         string? path = files.FirstOrDefault(f => Path.GetFileName(f) == selected);
         if (path is not null) await Share.Default.RequestAsync(new ShareFileRequest { Title = "فایل دریافت‌شده", File = new ShareFile(path) });
     }
