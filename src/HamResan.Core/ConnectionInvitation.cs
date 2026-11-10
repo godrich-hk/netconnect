@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 
 namespace HamResan.Core;
 
@@ -102,6 +103,7 @@ public sealed class InvitationVerifier
 {
     private readonly object _lock = new();
     private readonly byte[] _digest;
+    private readonly byte[] _issuerPin;
     private readonly long _issuedTimestamp;
     private readonly TimeSpan _lifetime;
     private readonly TimeProvider _clock;
@@ -112,6 +114,7 @@ public sealed class InvitationVerifier
         ArgumentNullException.ThrowIfNull(invitation);
         if (lifetime <= TimeSpan.Zero || lifetime > TimeSpan.FromMinutes(10))
             throw new ArgumentOutOfRangeException(nameof(lifetime));
+        _issuerPin = Convert.FromHexString(invitation.CertificateFingerprint);
         _clock = clock ?? TimeProvider.System;
         _issuedTimestamp = _clock.GetTimestamp();
         _lifetime = lifetime;
@@ -119,6 +122,9 @@ public sealed class InvitationVerifier
         try { _digest = SHA256.HashData(secret); }
         finally { CryptographicOperations.ZeroMemory(secret); }
     }
+
+    internal bool MatchesIssuer(X509Certificate certificate) =>
+        CryptographicOperations.FixedTimeEquals(SHA256.HashData(certificate.GetRawCertData()), _issuerPin);
 
     // Call only after authenticating the receiver's TLS certificate at the sender and
     // obtaining explicit local receiver consent. An issuer should rate-limit attempts.

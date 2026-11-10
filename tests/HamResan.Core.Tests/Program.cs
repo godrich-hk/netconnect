@@ -9,6 +9,8 @@ using HamResan.Core;
 var tests = new (string Name, Func<Task> Run)[]
 {
     ("invitation encoding and one-use redemption", InvitationTest),
+    ("invitation pairing followed by transfer", PairingTest),
+    ("invitation pairing rejection", PairingRejectionTest),
     ("protocol round trip and version", ProtocolTest),
     ("framing bounds and truncated messages", FramingTest),
     ("safe names and collisions", NamesTest),
@@ -63,6 +65,45 @@ static async Task InvitationTest()
     Check(!expired.TryRedeem(secret));
     CryptographicOperations.ZeroMemory(secret);
 }
+static async Task PairingSession(bool accept)
+{
+    using var serverId = Identity("receiver"); using var clientId = Identity("sender");
+    using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+    int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+    var invitation = ConnectionInvitation.Create(IPAddress.Loopback, port, PinnedTls.Fingerprint(serverId));
+    var verifier = new InvitationVerifier(invitation, TimeSpan.FromMinutes(1));
+    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+    using var client = new TcpClient();
+    Task connect = client.ConnectAsync(IPAddress.Loopback, port, cts.Token).AsTask();
+    using TcpClient server = await listener.AcceptTcpClientAsync(cts.Token); await connect;
+    bool approvalCalled = false;
+    Task<PinnedConnection> receiving = InvitationPairing.AcceptAsync(server, serverId, verifier, (request, _) =>
+    {
+        approvalCalled = true;
+        Check(request.SenderName == "sender" && request.SenderFingerprint == PinnedTls.Fingerprint(clientId));
+        return Task.FromResult(accept);
+    }, cts.Token);
+    Task<PinnedConnection> sending = InvitationPairing.ConnectAsync(client, clientId, ConnectionInvitation.Decode(invitation.Encode()), "sender", cts.Token);
+    if (!accept)
+    {
+        await Throws<System.Security.Authentication.AuthenticationException>(async () => { await sending; });
+        await Throws<System.Security.Authentication.AuthenticationException>(async () => { await receiving; });
+        Check(approvalCalled);
+        return;
+    }
+    await using var receiver = await receiving; await using var sender = await sending;
+    Check(approvalCalled);
+    string dir = Temp();
+    try
+    {
+        Task<bool> receiveFile = TransferEngine.ReceiveAsync(receiver, dir, 10, (_, _) => Task.FromResult(true), ct: cts.Token);
+        Check(await TransferEngine.SendAsync(sender, [new(new("ok.txt", 2, null), () => new MemoryStream([4, 2]))], ct: cts.Token));
+        Check(await receiveFile && File.ReadAllBytes(Path.Combine(dir, "ok.txt")).SequenceEqual(new byte[] { 4, 2 }));
+    }
+    finally { Directory.Delete(dir, true); }
+}
+static Task PairingTest() => PairingSession(true);
+static Task PairingRejectionTest() => PairingSession(false);
 static async Task ProtocolTest()
 {
     var input = new Offer(Protocol.Version, Guid.NewGuid(), [new FileOffer("hello.txt", 42, "text/plain")]);
