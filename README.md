@@ -19,7 +19,7 @@ dotnet workload install maui-android maui-windows
 dotnet build tests/HamResan.Core.Tests/HamResan.Core.Tests.csproj -c Release
 dotnet run --project tests/HamResan.Core.Tests/HamResan.Core.Tests.csproj -c Release --no-build
 dotnet publish src/HamResan.App/HamResan.App.csproj -f net10.0-android -c Debug -p:AndroidPackageFormats=apk
-dotnet publish src/HamResan.App/HamResan.App.csproj -f net10.0-windows10.0.19041.0 -p:TargetFrameworks=net10.0-windows10.0.19041.0 -c Release -r win-x64 --self-contained true -p:WindowsAppSDKSelfContained=true
+dotnet publish src/HamResan.App/HamResan.App.csproj -f net10.0-windows10.0.19041.0 -p:WindowsOnlyBuild=true -c Release -r win-x64 --self-contained true -p:WindowsAppSDKSelfContained=true
 ```
 
 Workflow آزمایشی GitHub Actions از Inno Setup برای ساخت نصب‌کنندهٔ Windows استفاده می‌کند. APK با کلید debug امضا می‌شود و نصب‌کنندهٔ Windows امضای تجاری ندارد؛ این‌ها بسته‌های انتشار عمومی یا قابل‌اعتماد نیستند. فقط پس از موفق شدن workflow می‌توان artifactهای آن را دریافت کرد. فایل‌های باینری فعلاً جزو مخزن نیستند.
