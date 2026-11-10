@@ -40,7 +40,18 @@ public sealed record Decision(int Version, bool Accepted);
 public sealed record Digest(string Sha256);
 public sealed record FileResult(bool Accepted);
 public sealed record TransferResult(bool Completed);
-public sealed record OutgoingFile(FileOffer Metadata, Func<Stream> OpenRead);
+public sealed class OutgoingFile
+{
+    public FileOffer Metadata { get; }
+    public Func<CancellationToken, Task<Stream>> OpenReadAsync { get; }
+    public OutgoingFile(FileOffer metadata, Func<Stream> openRead)
+        : this(metadata, _ => Task.FromResult(openRead())) { }
+    public OutgoingFile(FileOffer metadata, Func<CancellationToken, Task<Stream>> openReadAsync)
+    {
+        Metadata = metadata;
+        OpenReadAsync = openReadAsync;
+    }
+}
 public sealed record TransferProgress(Guid TransferId, int FileIndex, long BytesTransferred, long FileSize, TimeSpan Elapsed);
 
 public static class OfferValidator

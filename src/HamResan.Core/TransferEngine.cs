@@ -29,7 +29,7 @@ public static class TransferEngine
         if (!decision.Accepted) return false;
         for (int i = 0; i < files.Count; i++)
         {
-            await using Stream input = files[i].OpenRead();
+            await using Stream input = await files[i].OpenReadAsync(ct);
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             await CopyExactlyAsync(input, tls, files[i].Metadata.Size, hash, offer.TransferId, i, progress, ct);
             await Protocol.WriteAsync(tls, new Digest(Convert.ToHexString(hash.GetHashAndReset())), ct);
