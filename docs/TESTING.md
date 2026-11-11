@@ -49,3 +49,5 @@ On commit e50aaf9, [core CI](https://github.com/godrich-hk/netconnect/actions/ru
 [iOS simulator diagnostics](https://github.com/godrich-hk/netconnect/actions/runs/43015221758) also observed the process exit, and SplashBoard reported it could not validate a resource because the simulator bundle was unsigned. This observation is not proof of the exit cause. The workflow now ad-hoc signs the simulator bundle to investigate; its result must be checked independently and this does not provide a device IPA.
 
 The ad-hoc-signing investigation [run 43016323912](https://github.com/godrich-hk/netconnect/actions/runs/43016323912) also failed (exit 3) during the simulator install/launch step; the exact command and cause were not available through the raw logs in this environment. Additional diagnostics were added, without asserting a fix.
+
+In [run 43017650015](https://github.com/godrich-hk/netconnect/actions/runs/43017650015), ad-hoc signing and installation completed but `simctl launch` failed with exit 3. A diagnostic capture issue hid the simulator's error text; the workflow now sends it to stderr for the next run. iOS launch remains unverified.

@@ -50,7 +50,7 @@ jobs:
             if [ "$rc" -ne 0 ]; then
               while IFS= read -r line; do
                 line=${line//'%'/'%25'}; line=${line//$'\r'/'%0D'}
-                echo "::error::$line"
+                echo "::error::$line" >&2
               done <<< "$output"
               return "$rc"
             fi
