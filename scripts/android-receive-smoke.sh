@@ -43,12 +43,18 @@ fi
 sleep 12
 adb shell uiautomator dump /sdcard/hamresan-ui.xml >/dev/null
 adb pull /sdcard/hamresan-ui.xml "$work/ui.xml" >/dev/null 2>&1
-if ! python3 - "$work/ui.xml" <<'PY'
+if ! python3 - "$work/ui.xml" "${1:-}" <<'PY'
 import sys, xml.etree.ElementTree as ET
 root = ET.parse(sys.argv[1]).getroot()
 texts = [e.attrib.get('text', '') for e in root.iter('node')]
 # Check only the shape, not the actual bearer secret. 0x01, 0x04 = base64 "AQQ".
-if any(t.startswith('AQQ') and len(t) >= 90 for t in texts):
+code = next((t for t in texts if t.startswith('AQQ') and len(t) >= 90), None)
+if code is not None:
+    if sys.argv[2]:
+        import os
+        fd = os.open(sys.argv[2], os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, 'w') as output:
+            output.write(code)
     print('PASS: receiver produced an IPv4 one-time invitation')
     sys.exit(0)
 print('::error::Receiver did not produce an invitation after its button was tapped.')
