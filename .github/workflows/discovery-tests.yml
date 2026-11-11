@@ -17,4 +17,13 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Publish and browse a local DNS-SD service
-        run: dotnet run --project tests/HamResan.Discovery.Tests/HamResan.Discovery.Tests.csproj -c Release
+        shell: bash
+        run: |
+          set +e
+          dotnet run --project tests/HamResan.Discovery.Tests/HamResan.Discovery.Tests.csproj -c Release > mdns-test.log 2>&1
+          result=$?
+          cat mdns-test.log
+          if [ "$result" -ne 0 ]; then
+            grep -Ei 'exception|error|failed|failure' mdns-test.log | head -8 | while IFS= read -r line; do echo "::error::$line"; done
+            exit "$result"
+          fi
