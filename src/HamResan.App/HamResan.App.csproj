@@ -8,11 +8,11 @@
     <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
     <ApplicationTitle>HamResan</ApplicationTitle>
     <ApplicationId>com.hamresan.app</ApplicationId>
-    <ApplicationDisplayVersion>0.1.1</ApplicationDisplayVersion><ApplicationVersion>2</ApplicationVersion>
+    <ApplicationDisplayVersion>0.2.0</ApplicationDisplayVersion><ApplicationVersion>3</ApplicationVersion>
     <WindowsPackageType>None</WindowsPackageType>
     <!-- Debug APKs are distributed as standalone files, not via IDE fast deployment. -->
     <EmbedAssembliesIntoApk Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">true</EmbedAssembliesIntoApk>
-    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">26.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
   </PropertyGroup>
@@ -20,6 +20,7 @@
     <MauiIcon Include="Resources/AppIcon/appicon.svg" Color="#173752" />
     <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#173752" BaseSize="128,128" />
     <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="Shiny.Net.Discovery" Version="6.5.2" />
     <ProjectReference Include="../HamResan.Core/HamResan.Core.csproj" />
   </ItemGroup>
 </Project>
