@@ -1,0 +1,39 @@
+name: iOS simulator prototype
+on:
+  push:
+    paths:
+      - 'src/HamResan.App/**'
+      - 'src/HamResan.Core/**'
+      - '.github/workflows/ios-simulator.yml'
+      - 'global.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  simulator-build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Report build tools
+        run: |
+          dotnet --info
+          xcodebuild -version
+          uname -m
+      - name: Install iOS workload
+        run: dotnet workload install maui-ios --skip-manifest-update
+      - name: Build unsigned simulator application
+        shell: bash
+        run: |
+          if [ "$(uname -m)" = arm64 ]; then rid=iossimulator-arm64; else rid=iossimulator-x64; fi
+          set +e
+          dotnet build src/HamResan.App/HamResan.App.csproj -f net10.0-ios -p:IosOnlyBuild=true -c Debug -r "$rid" -p:EnableCodeSigning=false > ios-build.log 2>&1
+          result=$?
+          if [ "$result" -ne 0 ]; then
+            grep -iE 'error |: error|exception|failed' ios-build.log | head -8 | while IFS= read -r line; do echo "::error::$line"; done
+            exit "$result"
+          fi
+          echo "Built an unsigned $rid simulator app. No installable device IPA was created."

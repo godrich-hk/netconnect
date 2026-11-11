@@ -119,7 +119,7 @@ public sealed class MainPage : ContentPage
                     else if (_discovered.ContainsKey(key) || _discovered.Count < 50)
                     {
                         string name = new string(service.InstanceName.Where(c => !char.IsControl(c)).Take(80).ToArray());
-                        string platform = service.TxtRecords.TryGetValue("os", out string? os) && os is "Android" or "Windows" ? os : "نامشخص";
+                        string platform = service.TxtRecords.TryGetValue("os", out string? os) && os is "Android" or "Windows" or "iOS" ? os : "نامشخص";
                         _discovered[key] = $"{name} — {platform}";
                     }
                     _peers.Text = _discovered.Count == 0 ? "دستگاهی پیدا نشد؛ شبکه و فایروال را بررسی کنید." : string.Join("\n", _discovered.Values);
