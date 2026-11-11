@@ -16,6 +16,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      # GitHub's Linux runner has no IPv6 multicast route; exercise IPv4 separately.
+      - name: Use IPv4 on the isolated test runner
+        run: |
+          sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
+          sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
       - name: Publish and browse a local DNS-SD service
         shell: bash
         run: |
