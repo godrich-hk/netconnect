@@ -39,3 +39,21 @@ jobs:
             exit "$result"
           fi
           echo "Built an unsigned $rid simulator app. No installable device IPA was created."
+      - name: Install and launch on iOS simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          udid=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((x["udid"] for r,ds in d["devices"].items() if ".iOS-" in r for x in ds if x["name"].startswith("iPhone") and x.get("isAvailable")),""))')
+          if [ -z "$udid" ]; then echo '::error::No available iPhone simulator runtime was found.'; exit 1; fi
+          app=$(find src/HamResan.App/bin/Debug -type d -name 'HamResan.App.app' -print -quit)
+          if [ -z "$app" ]; then echo '::error::Simulator app bundle not found.'; exit 1; fi
+          trap 'xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true' EXIT
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" "$app"
+          launch=$(xcrun simctl launch "$udid" com.hamresan.app)
+          pid=${launch##*: }
+          case "$pid" in (*[!0-9]*|'') echo '::error::Could not obtain the simulator process ID.'; exit 1;; esac
+          sleep 15
+          if ! ps -p "$pid" >/dev/null; then echo '::error::The simulator app exited shortly after launch.'; exit 1; fi
+          echo 'PASS: iOS simulator app was installed, launched and remained running.'
