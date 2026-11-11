@@ -6,9 +6,28 @@ trap 'rm -rf "$work"' EXIT
 read -r width height < <(adb shell wm size | tr -d '\r' | sed -nE 's/.*Physical size: ([0-9]+)x([0-9]+).*/\1 \2/p' | head -1)
 : "${width:?No screen width}" "${height:?No screen height}"
 found=0
+switched=0
 for attempt in 1 2 3 4 5; do
   adb shell uiautomator dump /sdcard/hamresan-ui.xml >/dev/null
   adb pull /sdcard/hamresan-ui.xml "$work/ui.xml" >/dev/null 2>&1
+  if [ "${HAMRESAN_ENABLE_AUTO:-0}" = 1 ] && [ "$switched" -eq 0 ]; then
+    if switch_coords=$(python3 - "$work/ui.xml" <<'PYSW'
+import re, sys, xml.etree.ElementTree as ET
+for e in ET.parse(sys.argv[1]).getroot().iter('node'):
+    if e.attrib.get('class', '').endswith('Switch') and e.attrib.get('checked') == 'false':
+        match = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', e.attrib.get('bounds', ''))
+        if match:
+            x1, y1, x2, y2 = map(int, match.groups())
+            print((x1+x2)//2, (y1+y2)//2)
+            sys.exit(0)
+sys.exit(1)
+PYSW
+    ); then
+      adb shell input tap $switch_coords
+      switched=1
+      sleep 1
+    fi
+  fi
   if coordinates=$(python3 - "$work/ui.xml" <<'PY'
 import re, sys, xml.etree.ElementTree as ET
 root = ET.parse(sys.argv[1]).getroot()
@@ -29,6 +48,9 @@ PY
   adb shell input swipe "$((width / 2))" "$((height * 8 / 10))" "$((width / 2))" "$((height * 3 / 10))" 450
   sleep 1
 done
+if [ "${HAMRESAN_ENABLE_AUTO:-0}" = 1 ] && [ "$switched" -ne 1 ]; then
+  echo '::error::Auto-reception switch was not found or not disabled by default.'; exit 1
+fi
 if [ "$found" -ne 1 ]; then
   echo '::error::Receive button not found in the Android UI.'
   python3 - "$work/ui.xml" <<'PYXML'
