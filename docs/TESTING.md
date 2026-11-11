@@ -41,3 +41,5 @@ Latest Android and Windows build for commit `8c26f0d`: [run 43007347216](https:/
 The retry [run 43007347285](https://github.com/godrich-hk/netconnect/actions/runs/43007347285) did not execute: GitHub could not acquire an ARM64 macOS runner after multiple attempts. The workflow has been switched to the supported `macos-15-intel` runner label to attempt an x64 simulator build instead. This does not produce a device IPA or validate iPhone hardware.
 
 The `macos-15-intel` runner with Xcode 26.0.1 built the unsigned iOS simulator prototype successfully in [run 43010272482](https://github.com/godrich-hk/netconnect/actions/runs/43010272482). This was a build only, with no simulator launch, signed device IPA, iPhone hardware, or transfer verification. A separate simulator launch step has been added; its outcome must be checked independently.
+
+IPv4/IPv6 address selection and an IPv6 loopback pairing and transfer test have been added. Verify the current CI result before treating these as passed; they do not establish IPv6 LAN, VPN, multicast or physical-device interoperability. The receiver listens on all interfaces in the chosen address family.

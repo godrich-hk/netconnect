@@ -65,7 +65,7 @@ public sealed class MainPage : ContentPage
                 new Label { Text = "دستگاه‌های آمادهٔ دریافت (انتخاب دستگاه کد را جایگزین نمی‌کند)" }, _peers, _peerButtons, retry,
                 new Label { Text = "دریافت خودکار فقط از فرستنده‌های تأییدشده در این نوبت" }, _auto, forget,
                 _code, _alternateAddress, copy, _receive, _send, _cancel, _progress, _status, _location, share,
-                new Label { Text = "در شبکهٔ مهمان، جداسازی کاربران، VPN یا فایروال ممکن است اتصال برقرار نشود. کشف به mDNS و اتصال مستقیم شبکه وابسته است." } }
+                new Label { Text = "در شبکهٔ مهمان، جداسازی کاربران، VPN یا فایروال ممکن است اتصال برقرار نشود. کشف به mDNS و اتصال مستقیم شبکه وابسته است. نشانی جایگزین باید از خانوادهٔ IPv4 یا IPv6 انتخاب‌شده در گیرنده باشد." } }
         } };
         RefreshAddresses();
     }
@@ -124,11 +124,14 @@ public sealed class MainPage : ContentPage
                     {
                         string name = new string(service.InstanceName.Where(c => !char.IsControl(c)).Take(80).ToArray());
                         string platform = service.TxtRecords.TryGetValue("os", out string? os) && os is "Android" or "Windows" or "iOS" ? os : "نامشخص";
-                        string? address = service.Addresses
-                            .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork &&
-                                !IPAddress.IsLoopback(a) && !a.Equals(IPAddress.Any) &&
-                                !a.Equals(IPAddress.Broadcast) && a.GetAddressBytes()[0] is < 224 or > 239)
-                            ?.ToString();
+                        // The advertised route is untrusted; TLS and the invitation still authenticate the receiver.
+                        // Prefer its selected listening address because only that address family is listening.
+                        string? address = service.TxtRecords.TryGetValue("addr", out string? advertised) &&
+                            IPAddress.TryParse(advertised, out IPAddress? parsed) && NetworkAddresses.IsShareable(parsed)
+                            ? parsed.ToString()
+                            : service.Addresses.Where(NetworkAddresses.IsShareable)
+                                .OrderBy(a => a.AddressFamily == AddressFamily.InterNetwork ? 0 : 1)
+                                .FirstOrDefault()?.ToString();
                         _discovered[key] = new DiscoveredPeer(name, platform, address);
                     }
                     ShowDiscoveredPeers();
@@ -181,8 +184,9 @@ public sealed class MainPage : ContentPage
             var addresses = NetworkInterface.GetAllNetworkInterfaces()
                 .Where(n => n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
                 .SelectMany(n => n.GetIPProperties().UnicastAddresses)
-                .Select(a => a.Address).Where(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a))
-                .Distinct().Select(a => a.ToString()).ToList();
+                .Select(a => a.Address).Where(NetworkAddresses.IsShareable)
+                .Distinct().OrderBy(a => a.AddressFamily == AddressFamily.InterNetwork ? 0 : 1)
+                .Select(a => a.ToString()).ToList();
             _addresses.ItemsSource = addresses;
             if (addresses.Count > 0) _addresses.SelectedIndex = 0;
             else _status.Text = "نشانی شبکه پیدا نشد. به Wi-Fi وصل شوید و دوباره تلاش کنید.";
@@ -216,7 +220,10 @@ public sealed class MainPage : ContentPage
     {
         if (_addresses.SelectedItem is not string address) { _status.Text = "نشانی شبکه‌ای پیدا نشد. اتصال Wi-Fi یا LAN را بررسی کنید."; return; }
         X509Certificate2 identity = _identity.Value;
-        var listener = new TcpListener(IPAddress.Any, 0); listener.Start();
+        IPAddress selected = IPAddress.Parse(address);
+        var listener = new TcpListener(selected.AddressFamily == AddressFamily.InterNetworkV6 ? IPAddress.IPv6Any : IPAddress.Any, 0);
+        if (selected.AddressFamily == AddressFamily.InterNetworkV6) listener.Server.DualMode = false;
+        listener.Start();
         IAsyncDisposable? publication = null;
         _isReceiving = true;
         try
@@ -228,7 +235,7 @@ public sealed class MainPage : ContentPage
                 if (display.Length == 0) display = "HamResan";
                 publication = await _mdns.Publish(new MdnsServiceRegistration(display, "_hamresan._tcp", port)
                 {
-                    TxtRecords = new Dictionary<string, string> { ["id"] = _deviceId, ["os"] = DeviceInfo.Platform.ToString(), ["version"] = "1" }
+                    TxtRecords = new Dictionary<string, string> { ["id"] = _deviceId, ["os"] = DeviceInfo.Platform.ToString(), ["version"] = "1", ["addr"] = address }
                 }, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -292,6 +299,11 @@ public sealed class MainPage : ContentPage
             if (!IPAddress.TryParse(alternateAddress, out IPAddress? alternate))
             {
                 _status.Text = "نشانی جایگزین معتبر نیست. یک IP قابل‌دسترسی وارد کنید.";
+                return;
+            }
+            if (alternate.AddressFamily != invitation.Address.AddressFamily || !NetworkAddresses.IsShareable(alternate))
+            {
+                _status.Text = "نشانی جایگزین باید قابل اشتراک و هم‌خانوادهٔ نشانی انتخاب‌شده در گیرنده باشد (IPv4 یا IPv6، بدون شناسهٔ رابط).";
                 return;
             }
             invitation = invitation.WithAddress(alternate);

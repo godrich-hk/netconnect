@@ -10,7 +10,7 @@
     <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
     <ApplicationTitle>HamResan</ApplicationTitle>
     <ApplicationId>com.hamresan.app</ApplicationId>
-    <ApplicationDisplayVersion>0.2.0</ApplicationDisplayVersion><ApplicationVersion>3</ApplicationVersion>
+    <ApplicationDisplayVersion>0.3.0</ApplicationDisplayVersion><ApplicationVersion>4</ApplicationVersion>
     <WindowsPackageType>None</WindowsPackageType>
     <!-- Debug APKs are distributed as standalone files, not via IDE fast deployment. -->
     <EmbedAssembliesIntoApk Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">true</EmbedAssembliesIntoApk>

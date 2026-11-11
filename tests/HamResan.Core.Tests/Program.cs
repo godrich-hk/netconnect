@@ -10,7 +10,9 @@ var tests = new (string Name, Func<Task> Run)[]
 {
     ("automatic reception requires explicit session trust", SessionTrustTest),
     ("invitation encoding and one-use redemption", InvitationTest),
+    ("shareable IPv4 and IPv6 route candidates", NetworkAddressesTest),
     ("invitation pairing followed by transfer", PairingTest),
+    ("IPv6 invitation pairing followed by transfer", PairingIpv6Test),
     ("invitation pairing rejection", PairingRejectionTest),
     ("protocol round trip and version", ProtocolTest),
     ("framing bounds and truncated messages", FramingTest),
@@ -63,6 +65,14 @@ static Task SessionTrustTest()
     Check(!trust.CanReceiveAutomatically("not-a-pin"));
     return Task.CompletedTask;
 }
+static Task NetworkAddressesTest()
+{
+    foreach (string value in new[] { "192.168.1.8", "10.8.0.2", "169.254.1.2", "fd00::42", "2001:db8::1" })
+        Check(NetworkAddresses.IsShareable(IPAddress.Parse(value)), $"Expected shareable: {value}");
+    foreach (string value in new[] { "0.0.0.0", "127.0.0.1", "224.0.0.1", "255.255.255.255", "::", "::1", "ff02::1", "fe80::1", "fe80::1%1", "::ffff:192.168.1.8" })
+        Check(!NetworkAddresses.IsShareable(IPAddress.Parse(value)), $"Expected unusable: {value}");
+    return Task.CompletedTask;
+}
 static async Task InvitationTest()
 {
     string pin = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
@@ -79,6 +89,10 @@ static async Task InvitationTest()
     await Throws<FormatException>(() => Task.Run(() => ConnectionInvitation.Decode(code + "!")));
     await Throws<FormatException>(() => Task.Run(() => ConnectionInvitation.Decode("A")));
     await Throws<ArgumentException>(() => Task.Run(() => ConnectionInvitation.Create(IPAddress.Any, 45678, pin)));
+    var ipv6 = decoded.WithAddress(IPAddress.Parse("fd00::42"));
+    var ipv6Decoded = ConnectionInvitation.Decode(ipv6.Encode());
+    Check(ipv6Decoded.Address.Equals(ipv6.Address) && ipv6Decoded.Port == decoded.Port &&
+        ipv6Decoded.CertificateFingerprint == decoded.CertificateFingerprint && ipv6Decoded.GetSecret().SequenceEqual(decoded.GetSecret()));
     var clock = new TestClock();
     var verifier = new InvitationVerifier(invitation, TimeSpan.FromMinutes(1), clock);
     Check(!verifier.TryRedeem(RandomNumberGenerator.GetBytes(32)));
@@ -90,16 +104,17 @@ static async Task InvitationTest()
     Check(!expired.TryRedeem(secret));
     CryptographicOperations.ZeroMemory(secret);
 }
-static async Task PairingSession(bool accept)
+static async Task PairingSession(bool accept, bool ipv6 = false)
 {
+    IPAddress loopback = ipv6 ? IPAddress.IPv6Loopback : IPAddress.Loopback;
     using var serverId = Identity("receiver"); using var clientId = Identity("sender");
-    using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+    using var listener = new TcpListener(loopback, 0); listener.Start();
     int port = ((IPEndPoint)listener.LocalEndpoint).Port;
-    var invitation = ConnectionInvitation.Create(IPAddress.Loopback, port, PinnedTls.Fingerprint(serverId));
+    var invitation = ConnectionInvitation.Create(loopback, port, PinnedTls.Fingerprint(serverId));
     var verifier = new InvitationVerifier(invitation, TimeSpan.FromMinutes(1));
     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-    using var client = new TcpClient();
-    Task connect = client.ConnectAsync(IPAddress.Loopback, port, cts.Token).AsTask();
+    using var client = new TcpClient(loopback.AddressFamily);
+    Task connect = client.ConnectAsync(loopback, port, cts.Token).AsTask();
     using TcpClient server = await listener.AcceptTcpClientAsync(cts.Token); await connect;
     bool approvalCalled = false;
     Task<PinnedConnection> receiving = InvitationPairing.AcceptAsync(server, serverId, verifier, (request, _) =>
@@ -128,6 +143,7 @@ static async Task PairingSession(bool accept)
     finally { Directory.Delete(dir, true); }
 }
 static Task PairingTest() => PairingSession(true);
+static Task PairingIpv6Test() => PairingSession(true, ipv6: true);
 static Task PairingRejectionTest() => PairingSession(false);
 static async Task ProtocolTest()
 {
