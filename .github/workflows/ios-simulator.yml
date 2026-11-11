@@ -13,6 +13,8 @@ jobs:
   simulator-build:
     runs-on: macos-15
     timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4

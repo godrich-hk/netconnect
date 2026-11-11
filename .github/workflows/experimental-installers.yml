@@ -1,6 +1,14 @@
 name: Experimental installers
 on:
   push:
+    paths:
+      - 'src/**'
+      - 'tests/HamResan.Android.Integration/**'
+      - 'tests/HamResan.Android.AutoIntegration/**'
+      - 'scripts/android-*.sh'
+      - 'packaging/**'
+      - 'global.json'
+      - '.github/workflows/experimental-installers.yml'
   workflow_dispatch:
 permissions:
   contents: read
