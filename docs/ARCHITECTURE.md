@@ -13,7 +13,7 @@ flowchart LR
   NEXT["Planned: discovery, secure identity, trust, history, public storage"] -.-> UI
 ```
 
-No mDNS, concurrent multi-recipient orchestration, persisted trust, history, or background service exists. One operation is permitted at a time in the UI. IP discovery is only local interface enumeration and users must choose an appropriate address. No automatic firewall changes occur. The application's MAUI code-behind is provisional, not the requested MVVM/localized architecture.
+mDNS browsing runs while the app is foreground; a receiver advertises only while waiting. Discovery is informational and does not replace invitation authentication. Opt-in auto reception is limited to explicitly approved certificate fingerprints in memory for the current session. No concurrent multi-recipient orchestration, persisted trust, history, or background service exists. One operation is permitted at a time in the UI. IP discovery is only local interface enumeration and users must choose an appropriate address. No automatic firewall changes occur. The application's MAUI code-behind is provisional, not the requested MVVM/localized architecture.
 
 .NET 10 is the selected LTS line; `global.json` requests 10.0.100 with later stable feature bands in the same major/minor allowed. The core depends only on the .NET BCL, the UI uses Microsoft.Maui.Controls. CI uses GitHub-maintained checkout/setup-dotnet/upload-artifact actions and Inno Setup for the Windows installer. Actual MAUI compatibility and build must be assessed from the workflow result, not assumed.
 
@@ -32,3 +32,7 @@ flowchart TD
  STREAM --> VERIFY["Verify SHA-256 and save without overwrite"]
  VERIFY --> DONE["Share verified file from private storage"]
 ```
+
+## Scope additions requested
+
+There is no iOS app, Apple signing/build pipeline, or conversion engine. Files are streamed unchanged, so compatibility with an arbitrary app or OS is not guaranteed. Universal lossless conversion of all file types is impossible; future per-format conversion must be opt-in, preserve originals, disclose metadata and quality implications, and explicitly report unsupported formats. mDNS is link-local, not a way to traverse arbitrary VPNs or isolated networks; direct IP works only if routing/firewall policy permits it. No relay or Internet service is present.
