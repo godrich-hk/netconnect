@@ -18,7 +18,12 @@ jobs:
           name: experimental-android
           path: apk
           github-token: ${{ github.token }}
-          run-id: 42999761617
+          run-id: 43001564026
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build test sender
+        run: dotnet build tests/HamResan.Android.Integration/HamResan.Android.Integration.csproj -c Release
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -32,4 +37,4 @@ jobs:
           target: google_apis
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
-          script: ./scripts/android-smoke.sh "$(find apk -name '*-Signed.apk' -print -quit)" && ./scripts/android-receive-smoke.sh
+          script: ./scripts/android-smoke.sh "$(find apk -name '*-Signed.apk' -print -quit)" && ./scripts/android-transfer-smoke.sh
