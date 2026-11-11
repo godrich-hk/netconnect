@@ -22,3 +22,9 @@ jobs:
               except Exception as e:
                   print(f'::warning::{package}: {e}')
           PY
+      - name: Inspect published package
+        run: |
+          curl -fsSL https://api.nuget.org/v3-flatcontainer/shiny.net.discovery/6.5.2/shiny.net.discovery.6.5.2.nupkg -o /tmp/mdns.nupkg
+          unzip -l /tmp/mdns.nupkg | grep -E 'lib/.*\.(dll|xml)' | head -25 | while read -r line; do echo "::notice::$line"; done
+          unzip -p /tmp/mdns.nupkg lib/net10.0/Shiny.Net.Discovery.xml > /tmp/mdns.xml || true
+          grep -E 'IMdnsManager|AddMdns|MdnsServiceRegistration|MdnsBrowseConfig' /tmp/mdns.xml | head -20 | while read -r line; do echo "::notice::$line"; done || true
