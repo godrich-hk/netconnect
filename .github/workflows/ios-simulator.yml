@@ -47,6 +47,10 @@ jobs:
           if [ -z "$udid" ]; then echo '::error::No available iPhone simulator runtime was found.'; exit 1; fi
           app=$(find src/HamResan.App/bin/Debug -type d -name 'HamResan.App.app' -print -quit)
           if [ -z "$app" ]; then echo '::error::Simulator app bundle not found.'; exit 1; fi
+          # The simulator can install an unsigned bundle but SplashBoard may reject its resources.
+          # Ad-hoc signing is for the simulator only; it is not a signed device IPA.
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict "$app"
           trap 'xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true' EXIT
           xcrun simctl boot "$udid" || true
           xcrun simctl bootstatus "$udid" -b
