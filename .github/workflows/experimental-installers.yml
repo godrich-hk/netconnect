@@ -75,7 +75,7 @@ jobs:
           apk=$(find apk -name '*-Signed.apk' -print -quit)
           test -n "$apk"
           unzip -l "$apk" > apk-contents.txt
-          if ! grep -Eq 'assemblies\.blob|assemblies/.*\.dll|libassemblies\.' apk-contents.txt; then
+          if ! grep -Eq 'assemblies\.blob|assemblies/.*\.dll|libassemblies\.|lib/arm64-v8a/lib_HamResan\.App\.dll\.so' apk-contents.txt; then
             echo '::error::The APK does not contain embedded managed assemblies.'; exit 1
           fi
           if ! grep -q 'lib/arm64-v8a/' apk-contents.txt; then
