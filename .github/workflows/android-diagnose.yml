@@ -1,5 +1,8 @@
-name: Diagnose previous Android APK
+name: Diagnose Android APK
 on:
+  push:
+    paths:
+      - ".github/workflows/android-diagnose.yml"
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,14 +19,15 @@ jobs:
           name: experimental-android
           path: previous-apk
           github-token: ${{ github.token }}
-          run-id: 42872149942
+          run-id: 42971018664
       - name: Inspect APK managed assemblies
         shell: bash
         run: |
           apk=$(find previous-apk -name '*-Signed.apk' -print -quit)
           test -n "$apk"
           echo "APK: $apk"
-          unzip -l "$apk" | grep -E 'assembl|libmonodroid|libdotnet' | head -100 || true
+          unzip -l "$apk" > apk-contents.txt
+          grep -Ei 'assembl|\.dll|\.blob|\.so' apk-contents.txt | head -60 | while IFS= read -r line; do echo "::notice::$line"; done || true
           if ! unzip -l "$apk" | grep -Eq 'assemblies\.blob|assemblies/.*\.dll|libassemblies\.'; then
             echo '::warning::No embedded managed assembly bundle was found in the APK.'
           fi
