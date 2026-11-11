@@ -3,6 +3,8 @@ set -euo pipefail
 # Android's UI hierarchy dump can contain the invitation secret; never print or upload it.
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+read -r width height < <(adb shell wm size | tr -d '\r' | sed -nE 's/.*Physical size: ([0-9]+)x([0-9]+).*/\1 \2/p' | head -1)
+: "${width:?No screen width}" "${height:?No screen height}"
 found=0
 for attempt in 1 2 3 4 5; do
   adb shell uiautomator dump /sdcard/hamresan-ui.xml >/dev/null
@@ -24,7 +26,7 @@ PY
     found=1
     break
   fi
-  adb shell input swipe 500 1600 500 650 450
+  adb shell input swipe "$((width / 2))" "$((height * 8 / 10))" "$((width / 2))" "$((height * 3 / 10))" 450
   sleep 1
 done
 if [ "$found" -ne 1 ]; then
