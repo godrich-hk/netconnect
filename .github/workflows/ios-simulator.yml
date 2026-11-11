@@ -55,5 +55,19 @@ jobs:
           pid=${launch##*: }
           case "$pid" in (*[!0-9]*|'') echo '::error::Could not obtain the simulator process ID.'; exit 1;; esac
           sleep 15
-          if ! ps -p "$pid" >/dev/null; then echo '::error::The simulator app exited shortly after launch.'; exit 1; fi
+          if ! ps -p "$pid" >/dev/null; then
+            echo '::error::The simulator app exited shortly after launch.'
+            # CI logs are emitted as annotations as well because raw job logs may be inaccessible.
+            diagnostics=$(mktemp)
+            xcrun simctl spawn "$udid" log show --last 5m --style compact --predicate 'process == "HamResan.App" OR eventMessage CONTAINS[c] "HamResan.App"' > "$diagnostics" 2>&1 || true
+            for report in "$HOME"/Library/Logs/DiagnosticReports/HamResan*.ips; do
+              if [ -f "$report" ]; then cat "$report" >> "$diagnostics"; fi
+            done
+            grep -iE 'exception|fatal|abort|crash|signal|terminat|error' "$diagnostics" | tail -30 | cut -c 1-600 | while IFS= read -r line; do
+              line=${line//'%'/'%25'}; line=${line//$'\r'/'%0D'}
+              echo "::error::$line"
+            done || true
+            rm -f "$diagnostics"
+            exit 1
+          fi
           echo 'PASS: iOS simulator app was installed, launched and remained running.'
