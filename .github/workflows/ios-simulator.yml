@@ -43,19 +43,32 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          trap 'rc=$?; echo "::error::Command failed at line $LINENO: $BASH_COMMAND (exit $rc)"; exit "$rc"' ERR
+          run_logged() {
+            local output rc=0
+            output=$("$@" 2>&1) || rc=$?
+            if [ "$rc" -ne 0 ]; then
+              while IFS= read -r line; do
+                line=${line//'%'/'%25'}; line=${line//$'\r'/'%0D'}
+                echo "::error::$line"
+              done <<< "$output"
+              return "$rc"
+            fi
+            printf '%s\n' "$output"
+          }
           udid=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((x["udid"] for r,ds in d["devices"].items() if ".iOS-" in r for x in ds if x["name"].startswith("iPhone") and x.get("isAvailable")),""))')
           if [ -z "$udid" ]; then echo '::error::No available iPhone simulator runtime was found.'; exit 1; fi
           app=$(find src/HamResan.App/bin/Debug -type d -name 'HamResan.App.app' -print -quit)
           if [ -z "$app" ]; then echo '::error::Simulator app bundle not found.'; exit 1; fi
           # The simulator can install an unsigned bundle but SplashBoard may reject its resources.
           # Ad-hoc signing is for the simulator only; it is not a signed device IPA.
-          codesign --force --deep --sign - "$app"
-          codesign --verify --deep --strict "$app"
+          run_logged codesign --force --deep --sign - "$app"
+          run_logged codesign --verify --deep --strict "$app"
           trap 'xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true' EXIT
           xcrun simctl boot "$udid" || true
-          xcrun simctl bootstatus "$udid" -b
-          xcrun simctl install "$udid" "$app"
-          launch=$(xcrun simctl launch "$udid" com.hamresan.app)
+          run_logged xcrun simctl bootstatus "$udid" -b
+          run_logged xcrun simctl install "$udid" "$app"
+          launch=$(run_logged xcrun simctl launch "$udid" com.hamresan.app)
           pid=${launch##*: }
           case "$pid" in (*[!0-9]*|'') echo '::error::Could not obtain the simulator process ID.'; exit 1;; esac
           sleep 15
