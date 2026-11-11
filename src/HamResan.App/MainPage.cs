@@ -14,7 +14,9 @@ public sealed class MainPage : ContentPage
     private const long Limit = 20L * 1024 * 1024 * 1024;
     private readonly IMdnsManager _mdns;
     private readonly string _deviceId = Guid.NewGuid().ToString("N");
-    private readonly Dictionary<string, string> _discovered = new(StringComparer.OrdinalIgnoreCase);
+    private sealed record DiscoveredPeer(string Name, string Platform, string? Address);
+    private readonly Dictionary<string, DiscoveredPeer> _discovered = new(StringComparer.OrdinalIgnoreCase);
+    private readonly VerticalStackLayout _peerButtons = new() { Spacing = 4 };
     private readonly Lazy<X509Certificate2> _identity = new(CreateIdentity);
     private readonly SessionTrust _trust = new();
     private readonly Switch _auto = new() { IsToggled = false };
@@ -60,7 +62,7 @@ public sealed class MainPage : ContentPage
             Children = { new Label { Text = "هم‌رسان", FontSize = 30, FontAttributes = FontAttributes.Bold },
                 new Label { Text = "نسخهٔ آزمایشی؛ هر دو دستگاه باید در شبکهٔ محلی یکسان و برنامه باز باشد. کد را محرمانه و فقط از راه مطمئن به فرستنده بدهید." },
                 _name, _addresses, refresh,
-                new Label { Text = "دستگاه‌های آمادهٔ دریافت (شناسایی‌شده قابل اعتماد نیستند؛ کد جداگانه لازم است)" }, _peers, retry,
+                new Label { Text = "دستگاه‌های آمادهٔ دریافت (انتخاب دستگاه کد را جایگزین نمی‌کند)" }, _peers, _peerButtons, retry,
                 new Label { Text = "دریافت خودکار فقط از فرستنده‌های تأییدشده در این نوبت" }, _auto, forget,
                 _code, _alternateAddress, copy, _receive, _send, _cancel, _progress, _status, _location, share,
                 new Label { Text = "در شبکهٔ مهمان، جداسازی کاربران، VPN یا فایروال ممکن است اتصال برقرار نشود. کشف به mDNS و اتصال مستقیم شبکه وابسته است." } }
@@ -92,6 +94,7 @@ public sealed class MainPage : ContentPage
         _discovery = null;
         previous?.Cancel();
         _discovered.Clear();
+        _peerButtons.Children.Clear();
         _peers.Text = "جست‌وجو متوقف شد.";
     }
 
@@ -121,9 +124,14 @@ public sealed class MainPage : ContentPage
                     {
                         string name = new string(service.InstanceName.Where(c => !char.IsControl(c)).Take(80).ToArray());
                         string platform = service.TxtRecords.TryGetValue("os", out string? os) && os is "Android" or "Windows" or "iOS" ? os : "نامشخص";
-                        _discovered[key] = $"{name} — {platform}";
+                        string? address = service.Addresses
+                            .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork &&
+                                !IPAddress.IsLoopback(a) && !a.Equals(IPAddress.Any) &&
+                                !a.Equals(IPAddress.Broadcast) && a.GetAddressBytes()[0] is < 224 or > 239)
+                            ?.ToString();
+                        _discovered[key] = new DiscoveredPeer(name, platform, address);
                     }
-                    _peers.Text = _discovered.Count == 0 ? "دستگاهی پیدا نشد؛ شبکه و فایروال را بررسی کنید." : string.Join("\n", _discovered.Values);
+                    ShowDiscoveredPeers();
                 });
             }
         }
@@ -139,6 +147,30 @@ public sealed class MainPage : ContentPage
         {
             await MainThread.InvokeOnMainThreadAsync(() => { if (_discovery == source) _discovery = null; });
             source.Dispose();
+        }
+    }
+
+    // Discovery is unauthenticated. Selecting an address only changes the route; the invitation
+    // still pins the receiver certificate before the invitation secret is sent.
+    private void ShowDiscoveredPeers()
+    {
+        _peerButtons.Children.Clear();
+        _peers.Text = _discovered.Count == 0
+            ? "دستگاهی پیدا نشد؛ شبکه و فایروال را بررسی کنید."
+            : "برای استفاده از نشانی یک دستگاه، آن را انتخاب کنید و سپس کد دعوتش را وارد کنید.";
+        foreach (DiscoveredPeer peer in _discovered.Values.OrderBy(p => p.Name, StringComparer.CurrentCulture))
+        {
+            var button = new Button
+            {
+                Text = peer.Address is null ? $"{peer.Name} — {peer.Platform} (نشانی نامشخص)" : $"{peer.Name} — {peer.Platform} ({peer.Address})",
+                IsEnabled = peer.Address is not null
+            };
+            button.Clicked += (_, _) =>
+            {
+                _alternateAddress.Text = peer.Address;
+                _status.Text = "نشانی انتخاب شد؛ کد خصوصی همین دستگاه را وارد و فایل را انتخاب کنید.";
+            };
+            _peerButtons.Children.Add(button);
         }
     }
 
