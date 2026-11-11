@@ -50,13 +50,22 @@ public sealed class MainPage : ContentPage
 
     private void RefreshAddresses()
     {
-        var addresses = NetworkInterface.GetAllNetworkInterfaces()
-            .Where(n => n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-            .SelectMany(n => n.GetIPProperties().UnicastAddresses)
-            .Select(a => a.Address).Where(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a))
-            .Distinct().Select(a => a.ToString()).ToList();
-        _addresses.ItemsSource = addresses;
-        if (addresses.Count > 0) _addresses.SelectedIndex = 0;
+        try
+        {
+            var addresses = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                .SelectMany(n => n.GetIPProperties().UnicastAddresses)
+                .Select(a => a.Address).Where(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a))
+                .Distinct().Select(a => a.ToString()).ToList();
+            _addresses.ItemsSource = addresses;
+            if (addresses.Count > 0) _addresses.SelectedIndex = 0;
+            else _status.Text = "نشانی شبکه پیدا نشد. به Wi-Fi وصل شوید و دوباره تلاش کنید.";
+        }
+        catch (Exception ex) when (ex is NetworkInformationException or SocketException or UnauthorizedAccessException or PlatformNotSupportedException or InvalidOperationException)
+        {
+            _addresses.ItemsSource = Array.Empty<string>();
+            _status.Text = "خواندن نشانی شبکه ممکن نشد؛ اتصال Wi-Fi را بررسی کنید و دوباره تلاش کنید.";
+        }
     }
 
     private async Task RunAsync(Func<CancellationToken, Task> action)

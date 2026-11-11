@@ -58,3 +58,40 @@ jobs:
           path: artifacts/installer/HamResan-Windows-Setup.exe
           if-no-files-found: error
           retention-days: 7
+
+  android-smoke:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: experimental-android
+          path: apk
+      - name: Verify the standalone APK contains assemblies and ARM64 runtime
+        shell: bash
+        run: |
+          apk=$(find apk -name '*-Signed.apk' -print -quit)
+          test -n "$apk"
+          unzip -l "$apk" > apk-contents.txt
+          if ! grep -Eq 'assemblies\.blob|assemblies/.*\.dll|libassemblies\.' apk-contents.txt; then
+            echo '::error::The APK does not contain embedded managed assemblies.'; exit 1
+          fi
+          if ! grep -q 'lib/arm64-v8a/' apk-contents.txt; then
+            echo '::error::The APK does not contain ARM64 native libraries.'; exit 1
+          fi
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and launch APK on Android 11 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: ./scripts/android-smoke.sh "$(find apk -name '*-Signed.apk' -print -quit)"

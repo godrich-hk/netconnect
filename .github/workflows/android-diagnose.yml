@@ -1,9 +1,5 @@
 name: Diagnose previous Android APK
 on:
-  push:
-    paths:
-      - '.github/workflows/android-diagnose.yml'
-      - 'scripts/android-smoke.sh'
   workflow_dispatch:
 permissions:
   contents: read
