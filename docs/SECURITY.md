@@ -38,3 +38,5 @@ Dependency: Shiny.Net.Discovery 6.5.2, MIT, published 2026-10-31, maintained at 
 ## iOS prototype and alternative address
 
 An unsigned iOS simulator target has been added but device installation, key lifecycle, permission prompts, and interoperability have not been validated. The iOS plist declares local-network usage and `_hamresan._tcp` Bonjour browsing; no iOS background-receive claim is made. The optional sender-side IP override does not change the invitation's port, certificate pin or secret: TLS must still match the same receiver before the secret is transmitted. It does not create a route through a VPN, firewall, NAT, or isolated network.
+
+The Android app directly pins matching Xamarin.AndroidX Core/Collection/Lifecycle package versions to avoid mixing incompatible dependency versions required by MAUI and Shiny. AndroidX is distributed under Apache-2.0. The Android package currently targets Android 8 (API 26) or newer. The CI APK is signed with a temporary debug key, not a production signing key.
