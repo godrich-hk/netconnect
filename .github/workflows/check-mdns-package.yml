@@ -14,7 +14,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, urllib.request
-          for package in ('shiny.net.discovery', 'zeroconf'):
+          for package in ('xamarin.androidx.core', 'xamarin.androidx.core.ktx', 'xamarin.androidx.collection.ktx', 'xamarin.androidx.lifecycle.runtime.ktx', 'xamarin.androidx.lifecycle.viewmodel.ktx', 'xamarin.androidx.lifecycle.livedata.core'):
               try:
                   obj = json.load(urllib.request.urlopen(f'https://api.nuget.org/v3-flatcontainer/{package}/index.json', timeout=30))
                   stable = [v for v in obj['versions'] if '-' not in v]
