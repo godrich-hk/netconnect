@@ -82,6 +82,18 @@ public sealed class ConnectionInvitation
         return invitation;
     }
 
+    /// <summary>
+    /// Route an invitation over a different reachable interface (for example, a shared VPN).
+    /// The original receiver certificate pin, secret, and port are unchanged.
+    /// This does not bypass network isolation, NAT, or firewall rules.
+    /// </summary>
+    public ConnectionInvitation WithAddress(IPAddress address)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+        ValidateAddressAndPort(address, Port);
+        return new ConnectionInvitation(address, Port, (byte[])_fingerprint.Clone(), (byte[])_secret.Clone());
+    }
+
     // Caller must transmit this value only inside TLS after verifying CertificateFingerprint.
     // The invitation issuer must independently approve and pin the sender identity.
     public byte[] GetSecret() => (byte[])_secret.Clone();

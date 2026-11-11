@@ -71,6 +71,11 @@ static async Task InvitationTest()
     ConnectionInvitation decoded = ConnectionInvitation.Decode(code);
     Check(decoded.Address.Equals(invitation.Address) && decoded.Port == 45678 && decoded.CertificateFingerprint == pin);
     Check(decoded.GetSecret().SequenceEqual(invitation.GetSecret()));
+    var routed = decoded.WithAddress(IPAddress.Parse("10.8.0.9"));
+    Check(routed.Address.Equals(IPAddress.Parse("10.8.0.9")) && routed.Port == decoded.Port);
+    Check(routed.CertificateFingerprint == decoded.CertificateFingerprint && routed.GetSecret().SequenceEqual(decoded.GetSecret()));
+    Check(decoded.Address.Equals(IPAddress.Parse("192.168.1.8")));
+    await Throws<ArgumentException>(() => Task.Run(() => decoded.WithAddress(IPAddress.Any)));
     await Throws<FormatException>(() => Task.Run(() => ConnectionInvitation.Decode(code + "!")));
     await Throws<FormatException>(() => Task.Run(() => ConnectionInvitation.Decode("A")));
     await Throws<ArgumentException>(() => Task.Run(() => ConnectionInvitation.Create(IPAddress.Any, 45678, pin)));

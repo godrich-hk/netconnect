@@ -23,6 +23,7 @@ public sealed class MainPage : ContentPage
     private bool _isReceiving;
     private readonly Entry _name = new() { Text = DeviceInfo.Current.Name, Placeholder = "نام دستگاه" };
     private readonly Picker _addresses = new() { Title = "نشانی شبکهٔ این دستگاه" };
+    private readonly Entry _alternateAddress = new() { Placeholder = "نشانی جایگزین گیرنده (اختیاری، مثلاً VPN)", FlowDirection = FlowDirection.LeftToRight };
     private readonly Editor _code = new() { Placeholder = "کد دعوت", HeightRequest = 110, FlowDirection = FlowDirection.LeftToRight, AutoSize = EditorAutoSizeOption.Disabled };
     private readonly Label _status = new() { Text = "برای دریافت، ابتدا کد بسازید. برای ارسال، کد گیرنده را وارد کنید." };
     private readonly Label _location = new();
@@ -61,7 +62,7 @@ public sealed class MainPage : ContentPage
                 _name, _addresses, refresh,
                 new Label { Text = "دستگاه‌های آمادهٔ دریافت (شناسایی‌شده قابل اعتماد نیستند؛ کد جداگانه لازم است)" }, _peers, retry,
                 new Label { Text = "دریافت خودکار فقط از فرستنده‌های تأییدشده در این نوبت" }, _auto, forget,
-                _code, copy, _receive, _send, _cancel, _progress, _status, _location, share,
+                _code, _alternateAddress, copy, _receive, _send, _cancel, _progress, _status, _location, share,
                 new Label { Text = "در شبکهٔ مهمان، جداسازی کاربران، VPN یا فایروال ممکن است اتصال برقرار نشود. کشف به mDNS و اتصال مستقیم شبکه وابسته است." } }
         } };
         RefreshAddresses();
@@ -253,6 +254,16 @@ public sealed class MainPage : ContentPage
     private async Task SendAsync(CancellationToken ct)
     {
         ConnectionInvitation invitation = ConnectionInvitation.Decode((_code.Text ?? "").Trim());
+        string alternateAddress = (_alternateAddress.Text ?? "").Trim();
+        if (alternateAddress.Length > 0)
+        {
+            if (!IPAddress.TryParse(alternateAddress, out IPAddress? alternate))
+            {
+                _status.Text = "نشانی جایگزین معتبر نیست. یک IP قابل‌دسترسی وارد کنید.";
+                return;
+            }
+            invitation = invitation.WithAddress(alternate);
+        }
         _code.Text = "";
         string name = (_name.Text ?? "").Trim();
         var picked = (await FilePicker.Default.PickMultipleAsync())?.ToArray() ?? [];
