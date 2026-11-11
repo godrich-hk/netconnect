@@ -103,4 +103,4 @@ jobs:
           target: google_apis
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
-          script: ./scripts/android-smoke.sh "$(find apk -name '*-Signed.apk' -print -quit)"
+          script: ./scripts/android-smoke.sh "$(find apk -name '*-Signed.apk' -print -quit)" && ./scripts/android-receive-smoke.sh

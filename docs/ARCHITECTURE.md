@@ -1,6 +1,6 @@
 # Architecture and scope
 
-The repository has an experimental foreground-only MAUI screen and a portable core, not a complete MVP. On each app start/session, the UI creates an ephemeral certificate. The receiver listens on a selected local IPv4 address, shares a long one-use invitation out of band, approves the sender, and separately approves the file offer. The sender stages picker files in private cache, then sends over the authenticated connection. The receiver stores verified files in private app storage and can invoke the system share sheet. Real Android/Windows operation is not yet verified.
+The repository has an experimental foreground-only MAUI screen and a portable core, not a complete MVP. On each app start/session, the UI creates an ephemeral certificate. The receiver listens on a selected local IPv4 address, shares a long one-use invitation out of band, approves an unknown sender and, unless the user explicitly opts that certificate into session-only automatic reception, separately approves each file offer. The sender stages picker files in private cache, then sends over the authenticated connection. The receiver stores verified files in private app storage and can invoke the system share sheet. Real Android/Windows operation is not yet verified.
 
 ```mermaid
 flowchart LR
@@ -10,7 +10,8 @@ flowchart LR
   CORE --> TLS["Mutual TLS connection"]
   CORE --> STORE["Private temporary file and no-overwrite commit"]
   TLS <-->|"TCP/TLS, local network"| LAN["Another device"]
-  NEXT["Planned: discovery, secure identity, trust, history, public storage"] -.-> UI
+  UI --> DISC["Foreground mDNS browse / publish while receiving"]
+  NEXT["Planned: persistent secure identity, trust, history, public storage"] -.-> UI
 ```
 
 mDNS browsing runs while the app is foreground; a receiver advertises only while waiting. Discovery is informational and does not replace invitation authentication. Opt-in auto reception is limited to explicitly approved certificate fingerprints in memory for the current session. No concurrent multi-recipient orchestration, persisted trust, history, or background service exists. One operation is permitted at a time in the UI. IP discovery is only local interface enumeration and users must choose an appropriate address. No automatic firewall changes occur. The application's MAUI code-behind is provisional, not the requested MVVM/localized architecture.
@@ -26,7 +27,7 @@ flowchart TD
  SHARE --> ENTER["Sender enters code and selects files"]
  ENTER --> PAIR{"Receiver approves sender?"}
  PAIR -- No --> REJECT["Stop"]
- PAIR -- Yes --> OFFER{"Receiver approves files?"}
+ PAIR -- Yes --> OFFER{"User approves files or opted-in session trust?"}
  OFFER -- No --> REJECT
  OFFER -- Yes --> STREAM["TLS streaming with progress"]
  STREAM --> VERIFY["Verify SHA-256 and save without overwrite"]
