@@ -28,7 +28,15 @@ PY
   sleep 1
 done
 if [ "$found" -ne 1 ]; then
-  echo '::error::Receive button not found in the Android UI.'; exit 1
+  echo '::error::Receive button not found in the Android UI.'
+  python3 - "$work/ui.xml" <<'PYXML'
+import sys, xml.etree.ElementTree as ET
+for e in ET.parse(sys.argv[1]).getroot().iter('node'):
+    text = e.attrib.get('text', '')
+    if text and not text.startswith('AQQ'):
+        print('::notice::UI: ' + text[:100] + ' ' + e.attrib.get('bounds', ''))
+PYXML
+  exit 1
 fi
 sleep 12
 adb shell uiautomator dump /sdcard/hamresan-ui.xml >/dev/null
