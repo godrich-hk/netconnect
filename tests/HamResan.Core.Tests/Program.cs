@@ -8,6 +8,7 @@ using HamResan.Core;
 // Dependency-free test runner, so the core can be tested without NuGet packages.
 var tests = new (string Name, Func<Task> Run)[]
 {
+    ("automatic reception requires explicit session trust", SessionTrustTest),
     ("invitation encoding and one-use redemption", InvitationTest),
     ("invitation pairing followed by transfer", PairingTest),
     ("invitation pairing rejection", PairingRejectionTest),
@@ -42,6 +43,25 @@ static X509Certificate2 Identity(string name)
     using var rsa = RSA.Create(2048);
     var request = new CertificateRequest("CN=" + name, rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
     return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+}
+static Task SessionTrustTest()
+{
+    var trust = new SessionTrust();
+    string first = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+    string changed = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+    Check(!trust.Enabled && !trust.CanReceiveAutomatically(first));
+    trust.Enabled = true;
+    Check(!trust.CanReceiveAutomatically(first));
+    trust.AllowAutomaticForApprovedPeer(first);
+    Check(trust.CanReceiveAutomatically(first.ToLowerInvariant()));
+    Check(!trust.CanReceiveAutomatically(changed));
+    trust.Enabled = false;
+    Check(!trust.CanReceiveAutomatically(first));
+    trust.Enabled = true;
+    trust.Clear();
+    Check(!trust.CanReceiveAutomatically(first));
+    Check(!trust.CanReceiveAutomatically("not-a-pin"));
+    return Task.CompletedTask;
 }
 static async Task InvitationTest()
 {

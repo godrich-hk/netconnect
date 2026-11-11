@@ -1,0 +1,24 @@
+name: Check mDNS package availability
+on:
+  push:
+    paths:
+      - '.github/workflows/check-mdns-package.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check stable NuGet package versions
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request
+          for package in ('shiny.net.discovery', 'zeroconf'):
+              try:
+                  obj = json.load(urllib.request.urlopen(f'https://api.nuget.org/v3-flatcontainer/{package}/index.json', timeout=30))
+                  stable = [v for v in obj['versions'] if '-' not in v]
+                  print(f'::notice::{package}: stable versions {stable[-6:]}')
+              except Exception as e:
+                  print(f'::warning::{package}: {e}')
+          PY
