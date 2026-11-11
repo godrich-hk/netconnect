@@ -1,0 +1,20 @@
+name: Discovery integration
+on:
+  push:
+    paths:
+      - 'tests/HamResan.Discovery.Tests/**'
+      - '.github/workflows/discovery-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mdns-loopback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish and browse a local DNS-SD service
+        run: dotnet run --project tests/HamResan.Discovery.Tests/HamResan.Discovery.Tests.csproj -c Release
